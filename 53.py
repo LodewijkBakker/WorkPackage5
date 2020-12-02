@@ -27,7 +27,7 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
 
     prop_list = dict(L_tank_list=[], r_tank_list=[], m_list=[])
 
-    AcDif = 0.001  # [m] step and accuracy for r to L
+    AcDif = 0.01  # [m] step and accuracy for r to L
     L_min = 0.5  # was is to little for L
     L_max = 1.2  # was is deemed excessive for
     for L_tank in np.arange(L_min, L_max, AcDif):  # basically between what and what new values
@@ -35,6 +35,17 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
         m_structure = MassStructure(rho, r_tank, t_1, t_2, L_tank)
         # higher r can be made but if volume is to low it is no good.
 
+        v_new = (4/3)*np.pi*r_tank**3 + np.pi*r_tank**2*L_tank
+        if v_new < v_min:
+            r_forv_list = np.roots([(4/3)*np.pi, np.pi*L_tank, 0, -v_min])
+            #check for lowest possible positive real root
+
+            for j, i in enumerate(r_forv_list.imag):
+                if i == 0 and r_forv_list.real[j] > 0:
+                    # this is not really nice if floating point occurs but we dont think it does
+                    # there may be a negative solution but if all values are positive one root
+                    # needs to be positive as well
+                    r_tank = r_forv_list.real[j]
 
         prop_list["L_tank_list"].append(L_tank)
         prop_list["r_tank_list"].append(r_tank)
@@ -48,6 +59,8 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
         return L_tank_new, r_tank_new
     except:
         print("BucklingDimension fault")
+
+def SheetDimensions():
 
 
 
