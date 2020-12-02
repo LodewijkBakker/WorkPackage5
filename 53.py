@@ -1,8 +1,7 @@
 import numpy as np
 # preliminary dimensions
 #Hi there`! - Sahir
-#T2
-
+#T2www
 def CrossSectionArea(r_tank, t_1):
     # cross sectional area is needed for allot of part this makes it so that cross sectionc
     # can be changed everywhere if incorrect
