@@ -35,7 +35,7 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
         m_structure = MassStructure(rho, r_tank, t_1, t_2, L_tank)
         # higher r can be made but if volume is to low it is no good.
 
-        v_new = (4/3)*np.pi*r_tank**3 + np.pi*r_tank**2*L_tank
+        v_new = (4/3)*np.pi*r_tank**3 + np.pi*r_tank**2*L_tank #thin walled
         if v_new < v_min:
             r_forv_list = np.roots([(4/3)*np.pi, np.pi*L_tank, 0, -v_min])
             #check for lowest possible positive real root
@@ -61,13 +61,34 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
         print("BucklingDimension fault")
 
 
-def ShellDimensions(v_min, E, stress_min):
-    L_min = 0.5  # Between these reasonable value
+def ShellDimensions(v_min, E, stress_min, pressure, p_ratio):
+    L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
     r_min = 0.1
     r_max = 1.2
+    t_1_min = 0.01
+    t_1_max = 0.06
 
+    prop_list = dict(L_tank_list=[], r_tank_list=[], t_1_list=[], m_list=[])
+
+    AcDif = 0.01  # accuracy of the dimension in [m]
     for L_tank in np.arange(L_min, L_max, AcDif):
+        for r_tank in np.arange(r_min, r_max, AcDif):
+            v_new = (4 / 3) * np.pi * r_tank ** 3 + np.pi * r_tank ** 2 * L_tank #thin walled
+            if v_new > v_min:
+                t_1 = t_1_min
+                while t_1 < t_1_max:
+                    stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
+                    if stress_min < stress_criticals:
+
+                        # add it to dictionary or class
+                    else:
+                        x = 0 # placeholder
+
+                    t_1 += AcDif
+
+
+
     #binary elemination
 
 
