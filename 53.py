@@ -61,7 +61,7 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
         print("BucklingDimension fault")
 
 
-def ShellDimensions(v_min, E, stress_min, pressure, p_ratio):
+def ShellDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
     L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
     r_min = 0.1
@@ -74,13 +74,17 @@ def ShellDimensions(v_min, E, stress_min, pressure, p_ratio):
     AcDif = 0.01  # accuracy of the dimension in [m]
     for L_tank in np.arange(L_min, L_max, AcDif):
         for r_tank in np.arange(r_min, r_max, AcDif):
-            v_new = (4 / 3) * np.pi * r_tank ** 3 + np.pi * r_tank ** 2 * L_tank #thin walled
+            v_new = (4 / 3) * np.pi * r_tank ** 3 + np.pi * r_tank ** 2 * L_tank #thin walled assumption
             if v_new > v_min:
                 t_1 = t_1_min
                 while t_1 < t_1_max:
                     stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
                     if stress_min < stress_criticals:
-                        MassStructure(rho, r_tank, t_1, t_2, L_tank)
+                        t_2 = t_1 * 1.2
+                        # (important because due to pressure there is some ratio that works
+                        # for not warping the whole pressure vessel is sort of assumption)
+
+                        m_structure = MassStructure(rho, r_tank, t_1, t_2, L_tank)
                         prop_list["L_tank_list"].append(L_tank)
                         prop_list["r_tank_list"].append(r_tank)
                         prop_list["m_list"].append(m_structure)
