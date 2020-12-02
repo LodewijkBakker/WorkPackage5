@@ -80,7 +80,10 @@ def ShellDimensions(v_min, E, stress_min, pressure, p_ratio):
                 while t_1 < t_1_max:
                     stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
                     if stress_min < stress_criticals:
-
+                        MassStructure(rho, r_tank, t_1, t_2, L_tank)
+                        prop_list["L_tank_list"].append(L_tank)
+                        prop_list["r_tank_list"].append(r_tank)
+                        prop_list["m_list"].append(m_structure)
                         # add it to dictionary or class
                     else:
                         x = 0 # placeholder
