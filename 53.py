@@ -60,8 +60,15 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
     except:
         print("BucklingDimension fault")
 
-def SheetDimensions():
 
+def ShellDimensions(v_min, E, stress_min):
+    L_min = 0.5  # Between these reasonable value
+    L_max = 1.2
+    r_min = 0.1
+    r_max = 1.2
+
+    for L_tank in np.arange(L_min, L_max, AcDif):
+    #binary elemination
 
 
 def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressure):
@@ -89,11 +96,11 @@ def MaxBucklingStress(r_tank, t_1, E, L_tank):
     return stress_criticalb
 
 
-def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, v):
+def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
     Q_factor = (pressure / E) * (r_tank / t_1) ** 2
 
     # determine lambda value and minimum k factor
-    constant_k = (12/(np.pi**4)) * ((L_tank**4)/((r_tank**2) * (t_1**2))) * (1-v**2)
+    constant_k = (12/(np.pi**4)) * ((L_tank**4)/((r_tank**2) * (t_1**2))) * (1 - p_ratio ** 2)
     # constant for k factor if k factor is equal to lambda + c/
     # the graph for this consist of 2 minimum so a plus and a minus lambda (ASSUME plus lambda)
     # ask which lambda
@@ -102,7 +109,7 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, v):
     k_factor = lmd_half + constant_k*(1/lmd_half)
 
     stress_criticals = (1.983 - 0.983 * np.exp(-23.14 * Q_factor)) * \
-                       k_factor * ((E * np.pi ** 2) / (12 * (1 - v ** 2))) * (t_1/L_tank)**2
+                       k_factor * ((E * np.pi ** 2) / (12 * (1 - p_ratio ** 2))) * (t_1 / L_tank) ** 2
     # critical shell buckling (e or scientific notation)
     # oh exp can return imaginary values if not positive so be aware!!
     print(stress_criticals)
@@ -118,7 +125,7 @@ def InputVal():
 
     # Material specific inputs
     E = 72.4e9  # E modulus
-    v = 0.33  # poisson ratio
+    p_ratio = 0.33  # poisson ratio
     rho = 3000  # density [kg/m^3]
 
     # other inputs
@@ -130,7 +137,7 @@ def InputVal():
     stress_axial = StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressure)
 
     stress_criticalb = MaxBucklingStress(r_tank, t_1, E, L_tank)
-    stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, v)
+    stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
 
     if stress_axial > stress_criticalb or stress_axial > stress_criticals:
         # check if true then thickness needs to be re assesed
