@@ -56,7 +56,7 @@ def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
         L_tank_new = prop_list["L_tank_list"][min_mass_pos]
         r_tank_new = prop_list["r_tank_list"][min_mass_pos]
         # this selects for the best
-        return L_tank_new, r_tank_new
+        return L_tank_new, r_tank_new, t_1, t_2
     except:
         print("BucklingDimension fault")
 
@@ -175,7 +175,8 @@ def InputVal():
     if stress_axial > stress_criticalb or stress_axial > stress_criticals:
         # check if true then thickness needs to be re assesed
         if stress_criticalb < stress_criticals:  # bstress is lower
-            L_tank_new, r_tank_new = BucklingDimensions(v_min, E, stress_axial, rho, t_1, t_2)
+            L_tank_new, r_tank_new, t_1, t_2 = BucklingDimensions(v_min, E, stress_axial, rho, t_1, t_2)
+            # so t_1 and t_2 are not updated but it's easier for the future if something is done with it anyway
 
         else:  # else stress_criticalb > stress_criticals important may be cause for errors
             L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = ShellDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
