@@ -15,8 +15,8 @@ def MassStructure(rho, r_tank, t_1, t_2, L_tank):
     # outer diameter, minus the half of the volume of the sphere with the inner diameter
     m_cylinder = rho*A*(L_tank-2*r_tank)  # the length of the cylinder part
 
-    m_structure_bearing = 2*m_endcap + m_cylinder
-    m_structure = m_endcap + m_cylinder
+    m_structure_bearing = m_endcap + m_cylinder
+    m_structure = 2*m_endcap + m_cylinder
     # not really mstructure but this is because this the amount of force maximum on part of the structure
     return m_structure, m_structure_bearing
 
@@ -84,13 +84,18 @@ def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressur
 
     m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, L_tank)
 
-    v_endcap = (2 / 3) * np.pi * ((r_tank - t_2) ** 3)  # not thin walled
+    v_endcap = (2 / 3) * np.pi * ((r_tank - t_2) ** 3)  # not thin walled for reducing fuel
 
     F_axial = (m_structure_bearing + m_fuel) * acc_rocket  # [N]
+    F_axial_bottom = (m_structure + m_fuel) * acc_rocket
+    print(m_structure)
+    print(m_structure_bearing)
+    print(F_axial, "Axial load considered")
+    print(F_axial_bottom, "Axial load total (only for bottom)")
     stress_axial = (pressure * r_tank)/(4*t_1) + F_axial / A  # f axial is added
 
-    print(stress_axial)
-    return stress_axial
+    print(stress_axial, "stress_axial")
+    return stress_axial, F_axial
 
 
 def MaxBucklingStress(r_tank, t_1, E, L_tank):
@@ -125,10 +130,10 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
 
 
 def InputVal():
-    L_tank = 0.36  # length of the tank [m]
     r_tank = 1.1  # radius of the center of the fuel tank [m]
-    t_1 = 0.044  # cylindrical wall thickness [m]
-    t_2 = 0.022  # end cap thickness [m] #could calculate this with p
+    L_tank = 0.36 + 2* r_tank # length of the tank [m]
+    t_1 = 0.0172  # cylindrical wall thickness [m]
+    t_2 = 0.0086  # end cap thickness [m] #could calculate this with p
 
     # Material specific inputs
     E = 104e9  # E modulus
@@ -136,18 +141,17 @@ def InputVal():
     rho = 4429  # density [kg/m^3]
 
     # other inputs
-    pressure = 16000000  # [Pa]
-    m_fuel = 256  # mass of the fuel in one fuel tank [kg]
+    pressure = 10000000  # [Pa]
+    m_fuel = 257  # mass of the fuel in one fuel tank [kg]
     acc_rocket = 6  # highest acceleration of the rocket [m/s^2] 5.5 + 0.5
     v_min = 0.914  # minimum volume needed for fuel [#m3]
 
-    stress_axial = StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressure)
+    stress_axial, F_axial = StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressure)
 
     stress_criticalb = MaxBucklingStress(r_tank, t_1, E, L_tank)
     stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
 
     if stress_axial > stress_criticalb or stress_axial > stress_criticals:
-        print("hi")
         # check if true then thickness needs to be re assesed
         L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
         # update takes into account shell and column buckling
