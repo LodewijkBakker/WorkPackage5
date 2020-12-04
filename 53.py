@@ -1,6 +1,6 @@
 import numpy as np
 # preliminary dimensions
-#test push
+
 def CrossSectionArea(r_tank, t_1):
     # cross sectional area is needed for allot of part this makes it so that cross sectionc
     # can be changed everywhere if incorrect
@@ -54,7 +54,7 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
                 stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
                 if stress_min < stress_criticals:
                     ShellFailure = False
-                    t_2 = t_1 * 1.2
+                    t_2 = t_1 * 0.5
                     # (important because due to pressure there is some ratio that works
                     # for not warping the whole pressure vessel is sort of assumption)
 
@@ -86,10 +86,10 @@ def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressur
 
     v_endcap = (2 / 3) * np.pi * ((r_tank - t_2) ** 3)  # not thin walled
 
-    F_axial = (m_structure_bearing + m_fuel) * acc_rocket # [N]
+    F_axial = (m_structure_bearing + m_fuel) * acc_rocket  # [N]
+    stress_axial = (pressure * r_tank)/(4*t_1) + F_axial / A  # f axial is added
 
-    stress_axial = (pressure * r_tank)/(4*t_1) - F_axial / A
-
+    print(stress_axial)
     return stress_axial
 
 
@@ -125,21 +125,21 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
 
 
 def InputVal():
-    L_tank = 1.2  # length of the tank [m]
-    r_tank = 0.5  # radius of the center of the fuel tank [m]
-    t_1 = 0.001  # cylindrical wall thickness [m]
-    t_2 = 0.002  # end cap thickness [m] #could calculate this with p
+    L_tank = 0.36  # length of the tank [m]
+    r_tank = 1.1  # radius of the center of the fuel tank [m]
+    t_1 = 0.044  # cylindrical wall thickness [m]
+    t_2 = 0.022  # end cap thickness [m] #could calculate this with p
 
     # Material specific inputs
-    E = 72.4e9  # E modulus
-    p_ratio = 0.33  # poisson ratio
-    rho = 3000  # density [kg/m^3]
+    E = 104e9  # E modulus
+    p_ratio = 0.31  # poisson ratio
+    rho = 4429  # density [kg/m^3]
 
     # other inputs
-    pressure = 600000  # [Pa]
-    m_fuel = 3000  # mass of the fuel in one fuel tank [kg]
-    acc_rocket = 6.2  # highest acceleration of the rocket [m/s^2]
-    v_min = 12  # minimum volume needed for fuel [#m3]
+    pressure = 16000000  # [Pa]
+    m_fuel = 256  # mass of the fuel in one fuel tank [kg]
+    acc_rocket = 6  # highest acceleration of the rocket [m/s^2] 5.5 + 0.5
+    v_min = 0.914  # minimum volume needed for fuel [#m3]
 
     stress_axial = StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressure)
 
@@ -147,9 +147,9 @@ def InputVal():
     stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
 
     if stress_axial > stress_criticalb or stress_axial > stress_criticals:
+        print("hi")
         # check if true then thickness needs to be re assesed
         L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
         # update takes into account shell and column buckling
 
 InputVal()
-#Hello
