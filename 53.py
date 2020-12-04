@@ -24,7 +24,7 @@ def MassStructure(rho, r_tank, t_1, t_2, L_tank):
 def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
     L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
-    r_max = 1.2
+    r_max = 1.293  # max radius that is possible
     t_1_min = 0.001
 
     prop_list = dict(L_tank_list=[], r_tank_list=[], t_1_list=[], t_2_list=[], m_list=[])
@@ -47,7 +47,7 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
         r_min = max(r_min_column, r_min_volume)
         # if this should fail and r_min_volume is not declared something is def not right,
         # should always have been declared. This also ensures that column buckling is done
-        for r_tank in np.arange(r_min, min((r_min*5), r_max), AcDif):
+        for r_tank in np.arange(r_min, r_max, AcDif):
             t_1 = t_1_min
             ShellFailure = True
             while ShellFailure:
