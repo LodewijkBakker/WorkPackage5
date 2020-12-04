@@ -15,92 +15,65 @@ def MassStructure(rho, r_tank, t_1, t_2, L_tank):
     # outer diameter, minus the half of the volume of the sphere with the inner diameter
     m_cylinder = rho*A*(L_tank-2*r_tank)  # the length of the cylinder part
 
-    m_structure = m_endcap + 2*m_cylinder
+    m_structure_bearing = 2*m_endcap + m_cylinder
+    m_structure = m_endcap + m_cylinder
     # not really mstructure but this is because this the amount of force maximum on part of the structure
-    return m_structure
+    return m_structure, m_structure_bearing
 
 
-def BucklingDimensions(v_min, E, stress_min, rho, t_1, t_2):
-    r_over_l_fac = ((np.pi*E)/(2*stress_min))**0.5
-    # written buck stress around so that you fill in stress and E and get r over l
-
-    prop_list = dict(L_tank_list=[], r_tank_list=[], m_list=[])
-
-    AcDif = 0.01  # [m] step and accuracy for r to L
-    L_min = 0.5  # was is to little for L
-    L_max = 1.2  # was is deemed excessive for
-    for L_tank in np.arange(L_min, L_max, AcDif):  # basically between what and what new values
-        r_tank = r_over_l_fac*L_tank  # selects the minimum r possible
-        m_structure = MassStructure(rho, r_tank, t_1, t_2, L_tank)
-        # higher r can be made but if volume is to low it is no good.
-
-        v_new = (4/3)*np.pi*r_tank**3 + np.pi*r_tank**2*L_tank  # thin walled
-        if v_new < v_min:
-            r_forv_list = np.roots([(4/3)*np.pi, np.pi*L_tank, 0, -v_min])
-            # check for lowest possible positive real root
-
-            for j, i in enumerate(r_forv_list.imag):
-                if i == 0 and r_forv_list.real[j] > 0:
-                    # this is not really nice if floating point occurs but we dont think it does
-                    # there may be a negative solution but if all values are positive one root
-                    # needs to be positive as well
-                    r_tank = r_forv_list.real[j]
-
-        prop_list["L_tank_list"].append(L_tank)
-        prop_list["r_tank_list"].append(r_tank)
-        prop_list["m_list"].append(m_structure)
-
-    try:
-        min_mass_pos = prop_list["m_list"].index(min(prop_list["m_list"]))
-        L_tank_new = prop_list["L_tank_list"][min_mass_pos]
-        r_tank_new = prop_list["r_tank_list"][min_mass_pos]
-        # this selects for the best
-        return L_tank_new, r_tank_new, t_1, t_2
-    except:
-        print("BucklingDimension fault")
-
-
-def ShellDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
+def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
     L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
-    r_min = 0.1
     r_max = 1.2
-    t_1_min = 0.01
+    t_1_min = 0.001
 
     prop_list = dict(L_tank_list=[], r_tank_list=[], t_1_list=[], t_2_list=[], m_list=[])
 
     AcDif = 0.01  # accuracy of the dimension in [m]
     for L_tank in np.arange(L_min, L_max, AcDif):
-        for r_tank in np.arange(r_min, r_max, AcDif):
-            v_new = (4 / 3) * np.pi * r_tank ** 3 + np.pi * r_tank ** 2 * L_tank
-            # thin walled assumption
-            if v_new > v_min:
-                t_1 = t_1_min
-                ShellFailure = True
-                while ShellFailure:
-                    stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
-                    if stress_min < stress_criticals:
-                        ShellFailure = False
-                        t_2 = t_1 * 1.2
-                        # (important because due to pressure there is some ratio that works
-                        # for not warping the whole pressure vessel is sort of assumption)
 
-                        m_structure = MassStructure(rho, r_tank, t_1, t_2, L_tank)
-                        prop_list["m_list"].append(m_structure)
-                        prop_list["L_tank_list"].append(L_tank)
-                        prop_list["r_tank_list"].append(r_tank)
-                        prop_list["t_1_list"].append(t_1)
-                        prop_list["t_2_list"].append(t_2)
-                        # add it to dictionary or class
-                    else:
-                        t_1 += AcDif
+        r_over_l_fac = ((2 * stress_min) / ((np.pi ** 2) * E)) ** .50
+        # written buck stress around so that you fill in stress and E and get r over l
+        # if this is filled in you should get a factor that works
+        r_min_column = r_tank = r_over_l_fac*L_tank  # selects the minimum r possible for
+        r_forv_list = np.roots([(4/3)*np.pi, np.pi*L_tank, 0, -v_min])  # thin walled
+        for j, i in enumerate(r_forv_list.imag):
+            if i == 0 and r_forv_list.real[j] > 0:
+                # this is not really nice if floating point occurs but we dont think it does
+                # there may be a negative solution but if all values are positive one root
+                # needs to be positive as well
+                r_min_volume = r_forv_list.real[j]
+
+        r_min = max(r_min_column, r_min_volume)
+        # if this should fail and r_min_volume is not declared something is def not right,
+        # should always have been declared. This also ensures that column buckling is done
+        for r_tank in np.arange(r_min, min((r_min*5), r_max), AcDif):
+            t_1 = t_1_min
+            ShellFailure = True
+            while ShellFailure:
+                stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
+                if stress_min < stress_criticals:
+                    ShellFailure = False
+                    t_2 = t_1 * 1.2
+                    # (important because due to pressure there is some ratio that works
+                    # for not warping the whole pressure vessel is sort of assumption)
+
+                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, L_tank)
+                    prop_list["m_list"].append(m_structure)
+                    prop_list["L_tank_list"].append(L_tank)
+                    prop_list["r_tank_list"].append(r_tank)
+                    prop_list["t_1_list"].append(t_1)
+                    prop_list["t_2_list"].append(t_2)
+                    # add it to dictionary or class
+                else:
+                    t_1 += AcDif
 
     min_mass_pos = prop_list["m_list"].index(min(prop_list["m_list"]))
     L_tank_new = prop_list["L_tank_list"][min_mass_pos]
     r_tank_new = prop_list["r_tank_list"][min_mass_pos]
     t_1_tank_new = prop_list["t_1_list"][min_mass_pos]
     t_2_tank_new = prop_list["t_2_list"][min_mass_pos]
-    # this selects for the best
+    # this selects for the best weighted solution
     return L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new
 
 
@@ -109,9 +82,11 @@ def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressur
     A = CrossSectionArea(r_tank, t_1)
     # area of the cross section of the tank if only the actual material counts
 
-    m_structure = MassStructure(rho, r_tank, t_1, t_2, L_tank)
-    F_axial = (m_structure + m_fuel) * acc_rocket
-    #[N] placeholder this has to be calculated more correctly prob
+    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, L_tank)
+
+    v_endcap = (2 / 3) * np.pi * ((r_tank - t_2) ** 3)  # not thin walled
+
+    F_axial = (m_structure_bearing + m_fuel) * acc_rocket # [N]
 
     stress_axial = (pressure * r_tank)/(4*t_1) - F_axial / A
 
@@ -173,12 +148,7 @@ def InputVal():
 
     if stress_axial > stress_criticalb or stress_axial > stress_criticals:
         # check if true then thickness needs to be re assesed
-        if stress_criticalb < stress_criticals:  # bstress is lower
-            L_tank_new, r_tank_new, t_1, t_2 = BucklingDimensions(v_min, E, stress_axial, rho, t_1, t_2)
-            # so t_1 and t_2 are not updated but it's easier for the future if something is done with it anyway
-
-        else:  # else stress_criticalb > stress_criticals important may be cause for errors
-            L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = ShellDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
-
+        L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
+        # update takes into account shell and column buckling
 
 InputVal()
