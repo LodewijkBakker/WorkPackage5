@@ -92,7 +92,8 @@ def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressur
     print(m_structure_bearing)
     print(F_axial, "Axial load considered")
     print(F_axial_bottom, "Axial load total (only for bottom)")
-    stress_axial = (pressure * r_tank)/(4*t_1) + F_axial / A  # f axial is added
+    stress_axial = (pressure * r_tank)/(4*t_1) - F_axial / A
+    # f axial is removed since its in compression not tension
 
     print(stress_axial, "stress_axial")
     return stress_axial, F_axial
@@ -130,10 +131,10 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
 
 
 def InputVal():
-    r_tank = 1.1  # radius of the center of the fuel tank [m]
-    L_tank = 0.36 + 2* r_tank # length of the tank [m]
-    t_1 = 0.0172  # cylindrical wall thickness [m]
-    t_2 = 0.0086  # end cap thickness [m] #could calculate this with p
+    r_tank = 0.65  # radius of the center of the fuel tank [m]
+    L_tank = 0.1655 + 2 * r_tank  # length of the tank [m]
+    t_1 = 0.01015  # cylindrical wall thickness [m]
+    t_2 = 0.005078  # end cap thickness [m] #could calculate this with p
 
     # Material specific inputs
     E = 104e9  # E modulus
