@@ -25,7 +25,7 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
     L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
     r_max = 1.293  # max radius that is possible
-    t_1_min = 0.001
+    t_1_min = 0.001 # lowest reasonable chosen value
 
     prop_list = dict(L_tank_list=[], r_tank_list=[], t_1_list=[], t_2_list=[], m_list=[])
 
@@ -44,9 +44,10 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
                 # needs to be positive as well
                 r_min_volume = r_forv_list.real[j]
 
-        r_min = max(r_min_column, r_min_volume)
+        r_min = max(r_min_column, r_min_volume) * 1.05
         # if this should fail and r_min_volume is not declared something is def not right,
         # should always have been declared. This also ensures that column buckling is done
+        # the 1.05 factor is that overshoots the value so that it can slowly converge on 1.05
         for r_tank in np.arange(r_min, r_max, AcDif):
             t_1 = t_1_min
             ShellFailure = True
@@ -54,6 +55,7 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
                 stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
                 if stress_min < stress_criticals:
                     ShellFailure = False
+                    t_1 = 1.05 * t_1  # so that it also overshoots and slowly converges to this
                     t_2 = t_1 * 0.5
                     # (important because due to pressure there is some ratio that works
                     # for not warping the whole pressure vessel is sort of assumption)
@@ -85,13 +87,15 @@ def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressur
     m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, L_tank)
 
     v_endcap = (2 / 3) * np.pi * ((r_tank - t_2) ** 3)  # not thin walled for reducing fuel
+    v_cylinder = np.pi*r_tank**2 * (L_tank - 2*r_tank)
+    m_fuel_endcap = (v_endcap/(2*v_endcap+v_cylinder))*m_fuel
 
-    F_axial = (m_structure_bearing + m_fuel) * acc_rocket  # [N]
-    F_axial_bottom = (m_structure + m_fuel) * acc_rocket
-    print(m_structure)
-    print(m_structure_bearing)
+    F_axial = (m_structure_bearing + m_fuel - m_fuel_endcap) * acc_rocket  # [N]
+    F_axial_bottom = (m_structure + m_fuel - m_fuel_endcap) * acc_rocket
+    print(m_structure, "total mass of the structure")
+    print(m_structure_bearing, "total mass for stress considered")
     print(F_axial, "Axial load considered")
-    print(F_axial_bottom, "Axial load total (only for bottom)")
+    print(F_axial_bottom, "Axial load total (only true for bottom)")
     stress_axial = (pressure * r_tank)/(4*t_1) - F_axial / A
     # f axial is removed since its in compression not tension
 
@@ -106,7 +110,7 @@ def MaxBucklingStress(r_tank, t_1, E, L_tank):
 
     stress_criticalb = ((np.pi ** 2) * E * I_tank) / (A * L_tank ** 2)
     # critical column buckling stress
-    print(stress_criticalb)
+    print(stress_criticalb, "Critical Column buckling stress")
     return stress_criticalb
 
 
@@ -125,7 +129,7 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
     stress_criticals = (1.983 - 0.983 * np.exp(-23.14 * Q_factor)) * k_factor * ((E * np.pi ** 2) / (12 * (1 - p_ratio ** 2))) * (t_1 / L_tank) ** 2
     # critical shell buckling (e or scientific notation)
     # oh exp can return imaginary values if not positive so be aware!!
-    print(stress_criticals)
+    print(stress_criticals, "Critical sheet bucklin stress")
 
     return stress_criticals
 
@@ -152,9 +156,14 @@ def InputVal():
     stress_criticalb = MaxBucklingStress(r_tank, t_1, E, L_tank)
     stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
 
-    if stress_axial > stress_criticalb or stress_axial > stress_criticals:
+    while stress_axial > stress_criticalb or stress_axial > stress_criticals:
         # check if true then thickness needs to be re assesed
         L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
         # update takes into account shell and column buckling
+        stress_axial, F_axial = StressExperienced(r_tank_new, t_1_tank_new, t_2_tank_new, rho,
+                                                  L_tank_new, acc_rocket, m_fuel, pressure)
+        stress_criticalb = MaxBucklingStress(r_tank_new, t_1_new, E, L_tank_new)
+        stress_criticals = MaxShellBuckling(pressure, E, r_tank_new, t_1_new, L_tank_new, p_ratio)
+
 
 InputVal()
