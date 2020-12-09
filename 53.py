@@ -25,14 +25,14 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
     L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
     r_max = 1.293  # max radius that is possible
-    t_1_min = 0.001 # lowest reasonable chosen value
+    t_1_min = 0.001  # lowest reasonable chosen value
 
     prop_list = dict(L_tank_list=[], r_tank_list=[], t_1_list=[], t_2_list=[], m_list=[])
 
     AcDif = 0.01  # accuracy of the dimension in [m]
     for L_tank in np.arange(L_min, L_max, AcDif):
 
-        r_over_l_fac = ((2 * stress_min) / ((np.pi ** 2) * E)) ** .50
+        r_over_l_fac = ((2 * stress_min) / ((np.pi ** 2) * E)) ** .5
         # written buck stress around so that you fill in stress and E and get r over l
         # if this is filled in you should get a factor that works
         r_min_column = r_tank = r_over_l_fac*L_tank  # selects the minimum r possible for
@@ -91,12 +91,12 @@ def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressur
     m_fuel_endcap = (v_endcap/(2*v_endcap+v_cylinder))*m_fuel
 
     F_axial = (m_structure_bearing + m_fuel - m_fuel_endcap) * acc_rocket  # [N]
-    F_axial_bottom = (m_structure + m_fuel - m_fuel_endcap) * acc_rocket
+    F_axial_bottom = (m_structure + m_fuel) * acc_rocket
     print(m_structure, "total mass of the structure")
     print(m_structure_bearing, "total mass for stress considered")
     print(F_axial, "Axial load considered")
     print(F_axial_bottom, "Axial load total (only true for bottom)")
-    stress_axial = (pressure * r_tank)/(4*t_1) - F_axial / A
+    stress_axial = (pressure * r_tank)/(2*t_1) - F_axial / A
     # f axial is removed since its in compression not tension
 
     print(stress_axial, "stress_axial")
@@ -125,6 +125,8 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
     lmd_half = constant_k**0.5
     # can be easily received if one calculates differentiation where a minimum is equal to 0
     k_factor = lmd_half + constant_k*(1/lmd_half)
+    print(lmd_half, "lamda")
+    print(k_factor, "k_factor")
 
     stress_criticals = (1.983 - 0.983 * np.exp(-23.14 * Q_factor)) * k_factor * ((E * np.pi ** 2) / (12 * (1 - p_ratio ** 2))) * (t_1 / L_tank) ** 2
     # critical shell buckling (e or scientific notation)
