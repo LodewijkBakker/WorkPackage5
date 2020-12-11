@@ -20,7 +20,7 @@ def MassStructure(rho, r_tank, t_1, t_2, L_tank):
     # not really mstructure but this is because this the amount of force maximum on part of the structure
     return m_structure, m_structure_bearing
 
-
+# test
 def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
     L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
