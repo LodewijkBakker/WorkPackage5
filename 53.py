@@ -1,6 +1,7 @@
 import numpy as np
 # preliminary dimensions
 
+
 def CrossSectionArea(r_tank, t_1):
     # cross sectional area is needed for allot of part this makes it so that cross sectionc
     # can be changed everywhere if incorrect
@@ -8,19 +9,19 @@ def CrossSectionArea(r_tank, t_1):
     return A
 
 
-def MassStructure(rho, r_tank, t_1, t_2, L_tank):
+def MassStructure(rho, r_tank, t_1, t_2, H_tank):
     A = CrossSectionArea(r_tank, t_1)
     m_endcap = rho*(2/3)*np.pi*(r_tank**3 - (r_tank-t_2)**3)
     # mass of a single endcap simply a half of the volume of the sphere with
     # outer diameter, minus the half of the volume of the sphere with the inner diameter
-    m_cylinder = rho*A*(L_tank-2*r_tank)  # the length of the cylinder part
+    m_cylinder = rho*A*(H_tank - 2 * r_tank)  # the length of the cylinder part
 
     m_structure_bearing = m_endcap + m_cylinder
     m_structure = 2*m_endcap + m_cylinder
     # not really mstructure but this is because this the amount of force maximum on part of the structure
     return m_structure, m_structure_bearing
 
-# test
+
 def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
     L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
     L_max = 1.2
@@ -35,7 +36,7 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
         r_over_l_fac = ((2 * stress_min) / ((np.pi ** 2) * E)) ** .5
         # written buck stress around so that you fill in stress and E and get r over l
         # if this is filled in you should get a factor that works
-        r_min_column = r_tank = r_over_l_fac*L_tank  # selects the minimum r possible for
+        r_min_column = r_over_l_fac*L_tank  # selects the minimum r possible for
         r_forv_list = np.roots([(4/3)*np.pi, np.pi*L_tank, 0, -v_min])  # thin walled
         for j, i in enumerate(r_forv_list.imag):
             if i == 0 and r_forv_list.real[j] > 0:
@@ -71,23 +72,23 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
                     t_1 += AcDif
 
     min_mass_pos = prop_list["m_list"].index(min(prop_list["m_list"]))
-    L_tank_new = prop_list["L_tank_list"][min_mass_pos]
     r_tank_new = prop_list["r_tank_list"][min_mass_pos]
+    H_tank_new = prop_list["L_tank_list"][min_mass_pos] + 2 * r_tank_new
     t_1_tank_new = prop_list["t_1_list"][min_mass_pos]
     t_2_tank_new = prop_list["t_2_list"][min_mass_pos]
     # this selects for the best weighted solution
-    return L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new
+    return H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new
 
 
-def StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressure):
+def StressExperienced(r_tank, t_1, t_2, rho, H_tank, acc_rocket, m_fuel, pressure):
 
     A = CrossSectionArea(r_tank, t_1)
     # area of the cross section of the tank if only the actual material counts
 
-    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, L_tank)
+    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
 
     v_endcap = (2 / 3) * np.pi * ((r_tank - t_2) ** 3)  # not thin walled for reducing fuel
-    v_cylinder = np.pi*r_tank**2 * (L_tank - 2*r_tank)
+    v_cylinder = np.pi*r_tank**2 * (H_tank - 2 * r_tank)
     m_fuel_endcap = (v_endcap/(2*v_endcap+v_cylinder))*m_fuel
 
     F_axial = (m_structure_bearing + m_fuel - m_fuel_endcap) * acc_rocket  # [N]
@@ -114,11 +115,11 @@ def MaxBucklingStress(r_tank, t_1, E, L_tank):
     return stress_criticalb
 
 
-def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
+def MaxShellBuckling(pressure, E, r_tank, t_1, H_tank, p_ratio):
     Q_factor = (pressure / E) * (r_tank / t_1) ** 2
 
     # determine lambda value and minimum k factor
-    constant_k = (12/(np.pi**4)) * ((L_tank**4)/((r_tank**2) * (t_1**2))) * (1 - p_ratio ** 2)
+    constant_k = (12/(np.pi**4)) * ((H_tank ** 4) / ((r_tank ** 2) * (t_1 ** 2))) * (1 - p_ratio ** 2)
     # constant for k factor if k factor is equal to lambda + c/
     # the graph for this consist of 2 minimum so a plus and a minus lambda (ASSUME plus lambda)
     # ask which lambda
@@ -128,7 +129,7 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
     print(lmd_half, "lamda")
     print(k_factor, "k_factor")
 
-    stress_criticals = (1.983 - 0.983 * np.exp(-23.14 * Q_factor)) * k_factor * ((E * np.pi ** 2) / (12 * (1 - p_ratio ** 2))) * (t_1 / L_tank) ** 2
+    stress_criticals = (1.983 - 0.983 * np.exp(-23.14 * Q_factor)) * k_factor * ((E * np.pi ** 2) / (12 * (1 - p_ratio ** 2))) * (t_1 / H_tank) ** 2
     # critical shell buckling (e or scientific notation)
     # oh exp can return imaginary values if not positive so be aware!!
     print(stress_criticals, "Critical sheet bucklin stress")
@@ -138,7 +139,7 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio):
 
 def InputVal():
     r_tank = 0.65  # radius of the center of the fuel tank [m]
-    L_tank = 0.1655 + 2 * r_tank  # length of the tank [m]
+    H_tank = 0.1655 + 2 * r_tank  # length of the total tank [m]
     t_1 = 0.01015  # cylindrical wall thickness [m]
     t_2 = 0.005078  # end cap thickness [m] #could calculate this with p
 
@@ -152,20 +153,21 @@ def InputVal():
     m_fuel = 257  # mass of the fuel in one fuel tank [kg]
     acc_rocket = 6  # highest acceleration of the rocket [m/s^2] 5.5 + 0.5
     v_min = 0.914  # minimum volume needed for fuel [#m3]
+    rho_fuel = m_fuel/v_min
 
-    stress_axial, F_axial = StressExperienced(r_tank, t_1, t_2, rho, L_tank, acc_rocket, m_fuel, pressure)
+    stress_axial, F_axial = StressExperienced(r_tank, t_1, t_2, rho, H_tank, acc_rocket, m_fuel, pressure)
 
-    stress_criticalb = MaxBucklingStress(r_tank, t_1, E, L_tank)
-    stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
+    stress_criticalb = MaxBucklingStress(r_tank, t_1, E, H_tank)
+    stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, H_tank, p_ratio)
 
     while stress_axial > stress_criticalb or stress_axial > stress_criticals:
         # check if true then thickness needs to be re assesed
-        L_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
+        H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
         # update takes into account shell and column buckling
         stress_axial, F_axial = StressExperienced(r_tank_new, t_1_tank_new, t_2_tank_new, rho,
-                                                  L_tank_new, acc_rocket, m_fuel, pressure)
-        stress_criticalb = MaxBucklingStress(r_tank_new, t_1_new, E, L_tank_new)
-        stress_criticals = MaxShellBuckling(pressure, E, r_tank_new, t_1_new, L_tank_new, p_ratio)
+                                                  H_tank_new, acc_rocket, m_fuel, pressure)
+        stress_criticalb = MaxBucklingStress(r_tank_new, t_1_tank_new, E, H_tank_new)
+        stress_criticals = MaxShellBuckling(pressure, E, r_tank_new, t_1_tank_new, H_tank_new, p_ratio)
 
 
 InputVal()
