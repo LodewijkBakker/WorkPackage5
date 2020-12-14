@@ -16,7 +16,7 @@ def MassStructure(rho, r_tank, t_1, t_2, H_tank):
     # outer diameter, minus the half of the volume of the sphere with the inner diameter
     m_cylinder = rho*A*(H_tank - 2 * r_tank)  # the length of the cylinder part
 
-    m_structure_bearing = m_endcap + m_cylinder + 15
+    m_structure_bearing = m_endcap + m_cylinder
     m_structure = 2*m_endcap + m_cylinder
     # not really mstructure but this is because this the amount of force maximum on part of the structure
     return m_structure, m_structure_bearing
@@ -56,6 +56,7 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho, stress_uts_mat):
             # else larger than maximum total height is not possible
 
                 t_1 = (pressure*r_tank*f_safety)/stress_uts_mat
+
                 # starting value of cylindrical region t at minimum this case due to pressure
                 ShellFailure = True
                 while ShellFailure:
@@ -67,16 +68,25 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho, stress_uts_mat):
                         # (important because due to pressure there is some ratio that works
                         # for not warping the whole pressure vessel is sort of assumption)
 
-                        H_tank = L_tank+2*r_tank
-                        m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
-                        prop_list["m_list"].append(m_structure)
-                        prop_list["L_tank_list"].append(L_tank)
-                        prop_list["r_tank_list"].append(r_tank)
-                        prop_list["t_1_list"].append(t_1)
-                        prop_list["t_2_list"].append(t_2)
-                        # add it to dictionary or class
                     else:
                         t_1 += AcDif
+
+                v_total = (4 / 3) * np.pi * ((r_tank - t_2) ** 3) + np.pi * r_tank ** 2 * (
+                        H_tank - 2 * r_tank)
+                if (v_total - v_min) > 0:
+                    # sometimes due to a certain t there is a decrease in volume large enough
+                    # to make vtotal smaller than vmin. As thin walled approx doesnt take into
+                    # account thickness and its effect on radius, it is done here
+
+
+                    H_tank = L_tank + 2 * r_tank
+                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
+                    prop_list["m_list"].append(m_structure)
+                    prop_list["L_tank_list"].append(L_tank)
+                    prop_list["r_tank_list"].append(r_tank)
+                    prop_list["t_1_list"].append(t_1)
+                    prop_list["t_2_list"].append(t_2)
+                    # add it to dictionary or class
 
 
     min_mass_pos = prop_list["m_list"].index(min(prop_list["m_list"]))
@@ -190,27 +200,14 @@ def PressureWeightOpt(v_min, rho, pressure, stress_uts_mat):
 
                 v_total = (4 / 3) * np.pi * ((r_tank - t_2) ** 3) + np.pi * r_tank ** 2 * (
                         H_tank - 2 * r_tank)
-                if (v_total - v_min) < -0.001:
-                    print(r_tank, "r")
-                    print(H_tank, "h")
-                    print(v_total - v_min, "difference")
-                #print(v_total, "vtotal")
-                else:
-                    print(v_total)
-                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2,
-                                                                     H_tank)
-                    print(m_structure, 'Mstrucutre')
+                if (v_total - v_min) > 0:
+                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
 
-
-
-                m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
-
-                min_mass_list["m_list"].append(m_structure)
-                min_mass_list["L_tank_list"].append(L_tank)
-                min_mass_list["r_tank_list"].append(r_tank)
-                min_mass_list["t_1_list"].append(t_1)
-                min_mass_list["t_2_list"].append(t_2)
-
+                    min_mass_list["m_list"].append(m_structure)
+                    min_mass_list["L_tank_list"].append(L_tank)
+                    min_mass_list["r_tank_list"].append(r_tank)
+                    min_mass_list["t_1_list"].append(t_1)
+                    min_mass_list["t_2_list"].append(t_2)
 
     min_mass_pos = min_mass_list["m_list"].index(min(min_mass_list["m_list"]))
     r_tank_new = min_mass_list["r_tank_list"][min_mass_pos]
@@ -235,7 +232,7 @@ def InputVal():
     pressure = 10000000  # [Pa]
     m_fuel = 257  # mass of the fuel in one fuel tank [kg]
     acc_rocket = 6*9.81  # highest acceleration of the rocket [m/s^2] 5.5 + 0.5
-    v_min = 0.01 #1.37  # minimum volume needed for fuel [#m3]
+    v_min = 1.37  # minimum volume needed for fuel [#m3]
     rho_fuel = m_fuel/v_min
     stress_uts_mat = 880e6  # titanium ultimate stress
 
@@ -269,7 +266,7 @@ def InputVal():
     print(t_1_tank_new, "thickness cylinder")
     print(t_2_tank_new, "thickness cap")
 
-    v_total = (4 / 3) * np.pi * ((r_tank - t_2) ** 3) + np.pi*r_tank**2 * (H_tank - 2 * r_tank)
+    v_total = (4 / 3) * np.pi * ((r_tank_new - t_2) ** 3) + np.pi*r_tank_new**2 * (H_tank_new - 2 * r_tank_new)
 
     # debugging tools
     A = CrossSectionArea(r_tank_new, t_1_tank_new)
