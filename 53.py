@@ -16,21 +16,23 @@ def MassStructure(rho, r_tank, t_1, t_2, H_tank):
     # outer diameter, minus the half of the volume of the sphere with the inner diameter
     m_cylinder = rho*A*(H_tank - 2 * r_tank)  # the length of the cylinder part
 
-    m_structure_bearing = m_endcap + m_cylinder
+    m_structure_bearing = m_endcap + m_cylinder + 15
     m_structure = 2*m_endcap + m_cylinder
     # not really mstructure but this is because this the amount of force maximum on part of the structure
     return m_structure, m_structure_bearing
 
 
-def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
-    L_min = 0.5  # Between these reasonable value (PLACEHOLDER)
-    L_max = 1.2
+def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho, stress_uts_mat):
+    L_min = 0.1  # Between these reasonable value (PLACEHOLDER)
+    H_max = 4.75
+    L_max = H_max
+    # not really possible but ele close for which it is not possible will get picked off
     r_max = 1.293  # max radius that is possible
-    t_1_min = 0.001  # lowest reasonable chosen value
+    f_safety = 1.25
 
     prop_list = dict(L_tank_list=[], r_tank_list=[], t_1_list=[], t_2_list=[], m_list=[])
 
-    AcDif = 0.01  # accuracy of the dimension in [m]
+    AcDif = 0.001  # accuracy of the dimension change in [m]
     for L_tank in np.arange(L_min, L_max, AcDif):
 
         r_over_l_fac = ((2 * stress_min) / ((np.pi ** 2) * E)) ** .5
@@ -50,27 +52,32 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
         # should always have been declared. This also ensures that column buckling is done
         # the 1.05 factor is that overshoots the value so that it can slowly converge on 1.05
         for r_tank in np.arange(r_min, r_max, AcDif):
-            t_1 = t_1_min
-            ShellFailure = True
-            while ShellFailure:
-                stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
-                if stress_min < stress_criticals:
-                    ShellFailure = False
-                    t_1 = 1.05 * t_1  # so that it also overshoots and slowly converges to this
-                    t_2 = t_1 * 0.5
-                    # (important because due to pressure there is some ratio that works
-                    # for not warping the whole pressure vessel is sort of assumption)
+            if 2*r_tank + L_tank < H_max:
+            # else larger than maximum total height is not possible
 
-                    H_tank = L_tank+2*r_tank
-                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
-                    prop_list["m_list"].append(m_structure)
-                    prop_list["L_tank_list"].append(L_tank)
-                    prop_list["r_tank_list"].append(r_tank)
-                    prop_list["t_1_list"].append(t_1)
-                    prop_list["t_2_list"].append(t_2)
-                    # add it to dictionary or class
-                else:
-                    t_1 += AcDif
+                t_1 = (pressure*r_tank*f_safety)/stress_uts_mat
+                # starting value of cylindrical region t at minimum this case due to pressure
+                ShellFailure = True
+                while ShellFailure:
+                    stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, L_tank, p_ratio)
+                    if stress_min < stress_criticals:
+                        ShellFailure = False
+                        t_1 = 1.05 * t_1  # so that there is a safety margin
+                        t_2 = t_1 * 0.5
+                        # (important because due to pressure there is some ratio that works
+                        # for not warping the whole pressure vessel is sort of assumption)
+
+                        H_tank = L_tank+2*r_tank
+                        m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
+                        prop_list["m_list"].append(m_structure)
+                        prop_list["L_tank_list"].append(L_tank)
+                        prop_list["r_tank_list"].append(r_tank)
+                        prop_list["t_1_list"].append(t_1)
+                        prop_list["t_2_list"].append(t_2)
+                        # add it to dictionary or class
+                    else:
+                        t_1 += AcDif
+
 
     min_mass_pos = prop_list["m_list"].index(min(prop_list["m_list"]))
     r_tank_new = prop_list["r_tank_list"][min_mass_pos]
@@ -98,6 +105,9 @@ def StressExperienced(r_tank, t_1, t_2, rho, H_tank, acc_rocket, m_fuel, pressur
     print(m_structure_bearing, "total mass for stress considered")
     print(F_axial, "Axial load considered")
     print(F_axial_bottom, "Axial load total (only true for bottom)")
+    print(F_axial / A, "stress compress")
+    print(A, "area")
+
     stress_axial = (pressure * r_tank)/(2*t_1) - F_axial / A
     # f axial is removed since its in compression not tension
 
@@ -138,6 +148,78 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, H_tank, p_ratio):
     return stress_criticals
 
 
+def PressureStress(pressure, r_tank, t_1, t_2, stress_uts_mat):
+    f_safety = 1.25
+    # cylindrical part
+    stress_cyl = pressure*r_tank*f_safety/t_1
+    # sphere part
+    stress_cap = pressure * r_tank * f_safety / (2*t_2)
+
+    if stress_uts_mat > stress_cyl and stress_uts_mat > stress_cap:
+        PressureFailure = True
+    else:
+        PressureFailure = False
+
+    return PressureFailure
+
+def PressureWeightOpt(v_min, rho, pressure, stress_uts_mat):
+    r_max = 1.3  # maximum due to geometry spacecraft
+    AcDif = 0.001
+
+    H_max = 4.75
+    L_max = H_max
+    L_min = 0.01
+
+    min_mass_list = dict(L_tank_list=[], r_tank_list=[], t_1_list=[], t_2_list=[], m_list=[])
+    f_safety = 1.25
+    for L_tank in np.arange(L_min, L_max, AcDif):
+        r_forv_list = np.roots([(4 / 3) * np.pi, np.pi * L_tank, 0, -v_min])  # thin walled
+        for j, i in enumerate(r_forv_list.imag):
+            if i == 0 and r_forv_list.real[j] > 0:
+                # this is not really nice if floating point occurs but we dont think it does
+                # there may be a negative solution but if all values are positive one root
+                # needs to be positive as well
+                r_min = r_forv_list.real[j]
+                #print(r_min, "r_min")
+
+        for r_tank in np.arange(r_min, r_max, AcDif):
+            H_tank = 2 * r_tank + L_tank
+            if H_tank < H_max:
+                t_1 = (pressure * r_tank * f_safety) / stress_uts_mat
+                t_2 = 0.5*t_1
+
+                v_total = (4 / 3) * np.pi * ((r_tank - t_2) ** 3) + np.pi * r_tank ** 2 * (
+                        H_tank - 2 * r_tank)
+                if (v_total - v_min) < -0.001:
+                    print(r_tank, "r")
+                    print(H_tank, "h")
+                    print(v_total - v_min, "difference")
+                #print(v_total, "vtotal")
+                else:
+                    print(v_total)
+                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2,
+                                                                     H_tank)
+                    print(m_structure, 'Mstrucutre')
+
+
+
+                m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
+
+                min_mass_list["m_list"].append(m_structure)
+                min_mass_list["L_tank_list"].append(L_tank)
+                min_mass_list["r_tank_list"].append(r_tank)
+                min_mass_list["t_1_list"].append(t_1)
+                min_mass_list["t_2_list"].append(t_2)
+
+
+    min_mass_pos = min_mass_list["m_list"].index(min(min_mass_list["m_list"]))
+    r_tank_new = min_mass_list["r_tank_list"][min_mass_pos]
+    H_tank_new = min_mass_list["L_tank_list"][min_mass_pos] + 2 * r_tank_new
+    t_1_tank_new = min_mass_list["t_1_list"][min_mass_pos]
+    t_2_tank_new = min_mass_list["t_2_list"][min_mass_pos]
+
+    return H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new
+
 def InputVal():
     r_tank = 0.65  # radius of the center of the fuel tank [m]
     H_tank = 0.1655 + 2 * r_tank  # length of the total tank [m] not cylindrical length
@@ -152,23 +234,70 @@ def InputVal():
     # other inputs
     pressure = 10000000  # [Pa]
     m_fuel = 257  # mass of the fuel in one fuel tank [kg]
-    acc_rocket = 6  # highest acceleration of the rocket [m/s^2] 5.5 + 0.5
-    v_min = 0.914  # minimum volume needed for fuel [#m3]
+    acc_rocket = 6*9.81  # highest acceleration of the rocket [m/s^2] 5.5 + 0.5
+    v_min = 0.01 #1.37  # minimum volume needed for fuel [#m3]
     rho_fuel = m_fuel/v_min
+    stress_uts_mat = 880e6  # titanium ultimate stress
 
     stress_axial, F_axial = StressExperienced(r_tank, t_1, t_2, rho, H_tank, acc_rocket, m_fuel, pressure)
 
     stress_criticalb = MaxBucklingStress(r_tank, t_1, E, H_tank)
     stress_criticals = MaxShellBuckling(pressure, E, r_tank, t_1, H_tank, p_ratio)
 
-    while stress_axial > stress_criticalb or stress_axial > stress_criticals:
-        # check if true then thickness needs to be re assesed
-        H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E, stress_axial, pressure, p_ratio, rho)
-        # update takes into account shell and column buckling
-        stress_axial, F_axial = StressExperienced(r_tank_new, t_1_tank_new, t_2_tank_new, rho,
-                                                  H_tank_new, acc_rocket, m_fuel, pressure)
+    PressureFailure = PressureStress(pressure, r_tank, t_1, t_2, stress_uts_mat)
+
+    if stress_axial < 0 and(PressureFailure and (abs(stress_axial) > stress_criticalb or abs(stress_axial) > stress_criticals)):
+        H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = Iterator(PressureFailure, stress_axial, stress_criticalb, v_min, E, pressure, p_ratio,
+                 rho, stress_uts_mat, acc_rocket, m_fuel)
+
+    else:
+        print("")
+        H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = PressureWeightOpt(v_min, rho, pressure, stress_uts_mat)
+
+        stress_axial, F_axial = StressExperienced(r_tank_new, t_1_tank_new, t_2_tank_new, rho, H_tank_new, acc_rocket,
+                                                  m_fuel, pressure)
         stress_criticalb = MaxBucklingStress(r_tank_new, t_1_tank_new, E, H_tank_new)
         stress_criticals = MaxShellBuckling(pressure, E, r_tank_new, t_1_tank_new, H_tank_new, p_ratio)
+        if stress_axial < 0 and (PressureFailure and (
+                abs(stress_axial) > stress_criticalb or abs(stress_axial) > stress_criticals)):
+            H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = Iterator(PressureFailure, stress_axial, stress_criticalb, stress_criticals, v_min, E, pressure, p_ratio,
+                     rho, stress_uts_mat, acc_rocket, m_fuel)
 
 
+    print(H_tank_new, "total length")
+    print(r_tank_new, "total radius")
+    print(t_1_tank_new, "thickness cylinder")
+    print(t_2_tank_new, "thickness cap")
+
+    v_total = (4 / 3) * np.pi * ((r_tank - t_2) ** 3) + np.pi*r_tank**2 * (H_tank - 2 * r_tank)
+
+    # debugging tools
+    A = CrossSectionArea(r_tank_new, t_1_tank_new)
+    print(A, "crosssection")
+    print(v_total, "v_total")
+    print(v_min, "vmin")
+    print(acc_rocket, "acceleration")
+
+
+
+
+def Iterator(PressureFailure, stress_axial, stress_criticalb, stress_criticals, v_min, E, pressure, p_ratio, rho, stress_uts_mat, acc_rocket, m_fuel):
+    while PressureFailure and (
+            abs(stress_axial) > stress_criticalb or abs(stress_axial) > stress_criticals):
+        # check if true then thickness needs to be re assesed
+        H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new = NewDimensions(v_min, E,
+                                                                           abs(stress_axial),
+                                                                           pressure, p_ratio,
+                                                                           rho, stress_uts_mat)
+        # update takes into account shell and column buckling
+        # just check extra if it work or not
+        stress_axial, F_axial = StressExperienced(r_tank_new, t_1_tank_new, t_2_tank_new, rho,
+                                                  H_tank_new, acc_rocket, m_fuel, pressure)
+
+        stress_criticalb = MaxBucklingStress(r_tank_new, t_1_tank_new, E, H_tank_new)
+        stress_criticals = MaxShellBuckling(pressure, E, r_tank_new, t_1_tank_new, H_tank_new,
+                                            p_ratio)
+        PressureFailure = PressureStress(pressure, r_tank_new, t_1_tank_new, t_2_tank_new, stress_uts_mat)
+
+    return H_tank_new, r_tank_new, t_1_tank_new, t_2_tank_new
 InputVal()
