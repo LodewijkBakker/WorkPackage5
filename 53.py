@@ -61,7 +61,8 @@ def NewDimensions(v_min, E, stress_min, pressure, p_ratio, rho):
                     # (important because due to pressure there is some ratio that works
                     # for not warping the whole pressure vessel is sort of assumption)
 
-                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, L_tank)
+                    H_tank = L_tank+2*r_tank
+                    m_structure, m_structure_bearing = MassStructure(rho, r_tank, t_1, t_2, H_tank)
                     prop_list["m_list"].append(m_structure)
                     prop_list["L_tank_list"].append(L_tank)
                     prop_list["r_tank_list"].append(r_tank)
@@ -104,12 +105,12 @@ def StressExperienced(r_tank, t_1, t_2, rho, H_tank, acc_rocket, m_fuel, pressur
     return stress_axial, F_axial
 
 
-def MaxBucklingStress(r_tank, t_1, E, L_tank):
+def MaxBucklingStress(r_tank, t_1, E, H_tank):
     A = CrossSectionArea(r_tank, t_1)
     I_tank = 1 / 4 * np.pi * (r_tank ** 4 - (r_tank - t_1) ** 4)
     # moment of inertia of the cross section, not thin walled assumption used
 
-    stress_criticalb = ((np.pi ** 2) * E * I_tank) / (A * L_tank ** 2)
+    stress_criticalb = ((np.pi ** 2) * E * I_tank) / (A * (H_tank-2*r_tank) ** 2)
     # critical column buckling stress
     print(stress_criticalb, "Critical Column buckling stress")
     return stress_criticalb
@@ -119,7 +120,7 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, H_tank, p_ratio):
     Q_factor = (pressure / E) * (r_tank / t_1) ** 2
 
     # determine lambda value and minimum k factor
-    constant_k = (12/(np.pi**4)) * ((H_tank ** 4) / ((r_tank ** 2) * (t_1 ** 2))) * (1 - p_ratio ** 2)
+    constant_k = (12/(np.pi**4)) * (((H_tank-2*r_tank) ** 4) / ((r_tank ** 2) * (t_1 ** 2))) * (1 - p_ratio ** 2)
     # constant for k factor if k factor is equal to lambda + c/
     # the graph for this consist of 2 minimum so a plus and a minus lambda (ASSUME plus lambda)
     # ask which lambda
@@ -129,7 +130,7 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, H_tank, p_ratio):
     print(lmd_half, "lamda")
     print(k_factor, "k_factor")
 
-    stress_criticals = (1.983 - 0.983 * np.exp(-23.14 * Q_factor)) * k_factor * ((E * np.pi ** 2) / (12 * (1 - p_ratio ** 2))) * (t_1 / H_tank) ** 2
+    stress_criticals = (1.983 - 0.983 * np.exp(-23.14 * Q_factor)) * k_factor * ((E * np.pi ** 2) / (12 * (1 - p_ratio ** 2))) * (t_1 / (H_tank-2*r_tank)) ** 2
     # critical shell buckling (e or scientific notation)
     # oh exp can return imaginary values if not positive so be aware!!
     print(stress_criticals, "Critical sheet bucklin stress")
@@ -139,7 +140,7 @@ def MaxShellBuckling(pressure, E, r_tank, t_1, H_tank, p_ratio):
 
 def InputVal():
     r_tank = 0.65  # radius of the center of the fuel tank [m]
-    H_tank = 0.1655 + 2 * r_tank  # length of the total tank [m]
+    H_tank = 0.1655 + 2 * r_tank  # length of the total tank [m] not cylindrical length
     t_1 = 0.01015  # cylindrical wall thickness [m]
     t_2 = 0.005078  # end cap thickness [m] #could calculate this with p
 
